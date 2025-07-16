@@ -1,60 +1,98 @@
 import streamlit as st
 import pandas as pd
 
-st.set_page_config(page_title="Încărcare XLSX – Sheet fix", layout="wide")
-st.title("📂 Încărcare fișier Excel: sheet 'Refit plan 2025' și filtrare coloane")
+st.set_page_config(page_title="Comparație Excel", layout="wide")
+st.title("📊 Comparație între două fișiere Excel: 'Refit plan 2025'")
 
-uploaded_file = st.file_uploader("Încarcă fișierul Excel (.xlsx)", type="xlsx")
+# ===============================
+# Configurări
+coloane_de_interes = [
+    "Nr. mag.",
+    "Nume Magazin",
+    "Shop Format (alocare)",
+    "Cluster Size",
+    "Proiect",
+    "Data inchidere",
+    "Data redeschidere",
+    "Orar Luni-Sambata"
+]
+sheet_nume = "Refit plan 2025"
 
-if uploaded_file:
+# ===============================
+def incarca_fisier_excel(uploaded_file, label):
     try:
-        st.write("📥 Se încarcă doar sheet-ul 'Refit plan 2025'...")
+        df_raw = pd.read_excel(uploaded_file, sheet_name=sheet_nume, header=None, dtype=str)
 
-        # Încarcă doar sheet-ul specific
-        df_raw = pd.read_excel(uploaded_file, sheet_name="Refit plan 2025", header=None, dtype=str)
+        header_idx = df_raw[df_raw.iloc[:, 0] == "Nr. mag."].index
+        if len(header_idx) == 0:
+            st.error(f"❌ [{label}] Antetul 'Nr. mag.' nu a fost găsit.")
+            return None
 
-        st.write(f"✅ Sheet încărcat: {df_raw.shape[0]} rânduri × {df_raw.shape[1]} coloane")
+        header_row = header_idx[0]
+        header = df_raw.iloc[header_row].fillna('').astype(str).tolist()
 
-        # Caută rândul unde prima coloană este "Nr. mag."
-        header_row_index = df_raw[df_raw.iloc[:, 0] == "Nr. mag."].index
+        df = df_raw.iloc[header_row + 1:].copy()
+        df.columns = header
+        df.reset_index(drop=True, inplace=True)
 
-        if len(header_row_index) == 0:
-            st.error("❌ Nu s-a găsit rândul unde prima coloană este 'Nr. mag.'")
-        else:
-            header_row = header_row_index[0]
-            st.success(f"✅ Rândul {header_row} a fost identificat ca antet.")
+        # Păstrează doar coloanele existente
+        coloane_existente = [col for col in coloane_de_interes if col in df.columns]
+        df = df[coloane_existente].copy()
 
-            new_header = df_raw.iloc[header_row].fillna('').astype(str).tolist()
-            df_clean = df_raw.iloc[header_row + 1:].copy()
-            df_clean.columns = new_header
-            df_clean.reset_index(drop=True, inplace=True)
+        # Completează lipsurile pentru consistență
+        for col in coloane_de_interes:
+            if col not in df.columns:
+                df[col] = ""
 
-            # Coloanele relevante
-            coloane_de_pastrat = [
-                "Nr. mag.",
-                "Nume Magazin",
-                "Shop Format (alocare)",
-                "Cluster Size",
-                "Proiect",
-                "Data inchidere",
-                "Data redeschidere",
-                "Orar Luni-Sambata"
-            ]
-
-            coloane_existente = [col for col in coloane_de_pastrat if col in df_clean.columns]
-            coloane_lipsa = [col for col in coloane_de_pastrat if col not in df_clean.columns]
-
-            if coloane_lipsa:
-                st.warning(f"⚠️ Următoarele coloane lipsesc din sheet: {coloane_lipsa}")
-
-            if not coloane_existente:
-                st.error("❌ Nicio coloană relevantă nu a fost găsită.")
-            else:
-                df_filtrat = df_clean[coloane_existente].copy()
-                st.success(f"✅ {len(coloane_existente)} coloane păstrate.")
-                st.dataframe(df_filtrat.head())
-
-    except ValueError as ve:
-        st.error(f"❌ Sheet 'Refit plan 2025' nu există în fișierul Excel. Asigură-te că numele este exact.")
+        return df
     except Exception as e:
-        st.exception(f"❌ Eroare la procesare: {e}")
+        st.error(f"❌ Eroare la citirea fișierului [{label}]: {e}")
+        return None
+
+# ===============================
+# Încărcare fișiere
+
+col1, col2 = st.columns(2)
+with col1:
+    file1 = st.file_uploader("Încarcă prima versiune (.xlsx)", type="xlsx", key="f1")
+with col2:
+    file2 = st.file_uploader("Încarcă a doua versiune (.xlsx)", type="xlsx", key="f2")
+
+if file1 and file2:
+    df1 = incarca_fisier_excel(file1, "Versiunea 1")
+    df2 = incarca_fisier_excel(file2, "Versiunea 2")
+
+    if df1 is not None and df2 is not None:
+        id_col = "Nr. mag."
+        df1[id_col] = df1[id_col].astype(str).str.zfill(4)
+        df2[id_col] = df2[id_col].astype(str).str.zfill(4)
+
+        df1_indexed = df1.set_index(id_col)
+        df2_indexed = df2.set_index(id_col)
+
+        iduri_comune = df1_indexed.index.intersection(df2_indexed.index)
+
+        diferente = []
+        for idx in sorted(iduri_comune):
+            row1 = df1_indexed.loc[idx]
+            row2 = df2_indexed.loc[idx]
+            for col in coloane_de_interes:
+                val1 = str(row1.get(col, "")).strip()
+                val2 = str(row2.get(col, "")).strip()
+                if val1 != val2:
+                    diferente.append({
+                        "Nr. mag.": idx,
+                        "Coloana": col,
+                        "Valoare inițială": val1,
+                        "Valoare nouă": val2
+                    })
+
+        if diferente:
+            df_dif = pd.DataFrame(diferente)
+            st.success(f"✅ {len(df_dif)} diferențe găsite.")
+            st.dataframe(df_dif)
+
+            csv_data = df_dif.to_csv(index=False).encode("utf-8")
+            st.download_button("📥 Descarcă diferențele (.csv)", csv_data, "diferente.csv")
+        else:
+            st.info("✔️ Nu s-au găsit diferențe între versiunile comparate.")
