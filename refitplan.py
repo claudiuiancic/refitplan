@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 
 st.set_page_config(page_title="Comparație Excel – complet", layout="wide")
-st.title("📊 Comparație între două fișiere Excel – cu ID-uri lipsă, modificări și filtre")
+st.title("Comparație între două versiuni de fișiere xlsx")
 
 # ===============================
 # Setări
@@ -48,9 +48,9 @@ def incarca_fisier_excel(uploaded_file, label):
 
 col1, col2 = st.columns(2)
 with col1:
-    file1 = st.file_uploader("🔹 Încarcă PRIMA versiune (.xlsx)", type="xlsx", key="f1")
+    file1 = st.file_uploader("🔹 Încarcă versiunea VECHE (.xlsx)", type="xlsx", key="f1")
 with col2:
-    file2 = st.file_uploader("🔸 Încarcă A DOUA versiune (.xlsx)", type="xlsx", key="f2")
+    file2 = st.file_uploader("🔸 Încarcă versiunea NOUA (.xlsx)", type="xlsx", key="f2")
 
 if file1 and file2:
     df1 = incarca_fisier_excel(file1, "Versiunea 1")
