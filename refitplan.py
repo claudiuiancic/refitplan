@@ -1,45 +1,68 @@
 import streamlit as st
 import pandas as pd
 import io
+import csv
 
-st.set_page_config(page_title="Pas 1 - CSV robust", layout="wide")
-st.title("📂 Pas 1: Încărcare fișier și detecție antet 'Nr. mag.'")
+st.set_page_config(page_title="CSV – detectare separator", layout="wide")
+st.title("📂 Încărcare fișier și extragere antet 'Nr. mag.' cu detectare automată separator")
 
-uploaded_file = st.file_uploader("Încarcă un fișier CSV", type="csv")
+uploaded_file = st.file_uploader("Încarcă fișierul CSV", type="csv")
+
+def try_read_csv(text, sep):
+    try:
+        return pd.read_csv(io.StringIO(text), header=None, sep=sep)
+    except Exception as e:
+        st.warning(f"Eșec la parsare cu separator '{sep}': {e}")
+        return None
+
+def detect_separator(text_sample):
+    try:
+        dialect = csv.Sniffer().sniff(text_sample)
+        return dialect.delimiter
+    except:
+        return ','
 
 if uploaded_file:
     try:
-        st.write("📥 Fișierul a fost încărcat. Se citește conținutul...")
-
         content = uploaded_file.read()
-        st.write(f"✔️ Fișier citit, lungime: {len(content)} bytes")
-
         text = content.decode("utf-8", errors="replace")
-        st.write("✔️ Conținut decodat în UTF-8")
+        st.write(f"✔️ Fișier decodat, lungime: {len(text)} caractere")
 
-        st.write("🔄 Se construiește DataFrame brut (fără antet, sep=';')...")
-        df_raw = pd.read_csv(io.StringIO(text), header=None, sep=";")
-        st.write(f"✔️ DataFrame citit: {df_raw.shape[0]} rânduri, {df_raw.shape[1]} coloane")
+        # Testare separator ; apoi , apoi detectare automată
+        st.write("🔍 Încearcă sep=';'...")
+        df_raw = try_read_csv(text, sep=';')
 
-        st.write("🔍 Se caută rândul cu antet care începe cu 'Nr. mag.'...")
-        header_row_index = df_raw[df_raw.iloc[:, 0] == "Nr. mag."].index
+        if df_raw is None:
+            st.write("🔍 Încearcă sep=','...")
+            df_raw = try_read_csv(text, sep=',')
 
-        if len(header_row_index) == 0:
-            st.error("❌ Nu s-a găsit niciun rând unde prima coloană este 'Nr. mag.'")
+        if df_raw is None:
+            st.write("🧪 Încercare cu detectare automată...")
+            sample = "\n".join(text.splitlines()[:20])
+            detected_sep = detect_separator(sample)
+            st.info(f"🧭 Separator detectat automat: '{detected_sep}'")
+            df_raw = try_read_csv(text, sep=detected_sep)
+
+        if df_raw is None:
+            st.error("❌ Nu s-a putut citi fișierul cu niciun separator.")
         else:
-            header_row = header_row_index[0]
-            st.write(f"✅ Antet găsit pe rândul index {header_row}")
+            st.write(f"✅ Fișier citit: {df_raw.shape[0]} rânduri, {df_raw.shape[1]} coloane")
 
-            new_header = df_raw.iloc[header_row].astype(str).tolist()
-            st.write("🧾 Antet extras:", new_header)
+            # Caută rândul cu antet
+            header_row_index = df_raw[df_raw.iloc[:, 0] == "Nr. mag."].index
 
-            st.write("✂️ Se păstrează doar rândurile sub antet...")
-            df_clean = df_raw.iloc[header_row + 1:].copy()
-            df_clean.columns = new_header
-            df_clean.reset_index(drop=True, inplace=True)
+            if len(header_row_index) == 0:
+                st.error("❌ Nu s-a găsit rândul cu antet 'Nr. mag.' în prima coloană.")
+            else:
+                header_row = header_row_index[0]
+                st.success(f"✅ Rândul {header_row} a fost identificat ca antet.")
 
-            st.success("✅ Datele au fost curățate cu succes. Mai jos sunt primele 5 rânduri:")
-            st.dataframe(df_clean.head())
+                new_header = df_raw.iloc[header_row].astype(str).tolist()
+                df_clean = df_raw.iloc[header_row + 1:].copy()
+                df_clean.columns = new_header
+                df_clean.reset_index(drop=True, inplace=True)
+
+                st.dataframe(df_clean.head())
 
     except Exception as e:
-        st.exception(f"❌ Eroare detectată: {e}")
+        st.exception(f"❌ Eroare generală: {e}")
