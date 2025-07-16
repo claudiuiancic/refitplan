@@ -2,35 +2,51 @@ import streamlit as st
 import pandas as pd
 import io
 
-st.title("🧪 Încărcare CSV cu antet personalizat")
+st.set_page_config(page_title="Încărcare CSV cu antet personalizat", layout="wide")
+st.title("🧪 Încărcare fișier CSV cu antet pe rând selectabil")
 
 uploaded_file = st.file_uploader("Încarcă fișierul CSV", type="csv")
 
 if uploaded_file:
-    # Citește tot fișierul în memorie
     content = uploaded_file.read().decode("utf-8", errors="replace")
-    raw_data = list(csv_line for csv_line in content.splitlines())
-    total_lines = len(raw_data)
+    lines = content.splitlines()
 
-    # Afișează primele 10 rânduri ca previzualizare
-    st.subheader("📍 Primele 10 rânduri (raw text)")
-    for i, line in enumerate(raw_data[:10]):
+    st.subheader("📄 Primele 10 rânduri (text brut)")
+    for i, line in enumerate(lines[:10]):
         st.text(f"{i}: {line}")
 
-    header_row = st.slider("Selectează indexul rândului care conține antetul (începând de la 0)", 0, min(total_lines - 1, 20), value=3)
+    max_row = min(len(lines) - 1, 20)
+    header_row = st.slider("Alege rândul care conține antetul", 0, max_row, value=3)
 
     try:
-        # Reîncarcă în DataFrame cu header=None
         df_full = pd.read_csv(io.StringIO(content), header=None)
-        custom_header = df_full.iloc[header_row].astype(str).tolist()
 
-        # Elimină rândurile de deasupra antetului și setează noul header
+        # Extract header și curățare
+        raw_header = df_full.iloc[header_row].astype(str).fillna('').tolist()
+
+        # Înlocuiește golurile
+        header_clean = [
+            col if col.strip() != '' else f"Col_{i}"
+            for i, col in enumerate(raw_header)
+        ]
+
+        # Verifică duplicate și redenumește
+        from collections import Counter
+        counter = Counter()
+        final_header = []
+        for col in header_clean:
+            count = counter[col]
+            final_name = f"{col}_{count}" if count > 0 else col
+            final_header.append(final_name)
+            counter[col] += 1
+
         df_clean = df_full.iloc[header_row + 1:].copy()
-        df_clean.columns = custom_header
+        df_clean.columns = final_header
         df_clean.reset_index(drop=True, inplace=True)
 
-        st.success("✅ Fișier citit corect cu antet personalizat.")
-        st.write("🔹 Coloane detectate:", list(df_clean.columns))
+        st.success("✅ Antet aplicat și tabelul a fost citit corect!")
+        st.write("🔹 Coloane detectate:", final_header)
         st.dataframe(df_clean.head())
+
     except Exception as e:
         st.exception(f"❌ Eroare: {e}")
