@@ -1,27 +1,23 @@
 import streamlit as st
 import pandas as pd
 
-st.set_page_config(page_title="Test CSV", layout="wide")
-st.title("🧪 Test încărcare fișiere CSV (UTF-8)")
+st.set_page_config(page_title="Test CSV dinamic", layout="wide")
+st.title("🧪 Test inteligent încărcare fișier CSV")
 
-uploaded_file1 = st.file_uploader("Încarcă PRIMUL CSV (cu header pe rândul 4)", type="csv", key="csv1")
-uploaded_file2 = st.file_uploader("Încarcă AL DOILEA CSV (cu header pe rândul 4)", type="csv", key="csv2")
+uploaded_file = st.file_uploader("Încarcă un fișier CSV", type="csv")
 
-def safe_read(file, label):
+if uploaded_file:
+    st.subheader("📍 Conținut brut (primele 10 rânduri)")
+    raw_preview = pd.read_csv(uploaded_file, header=None, nrows=10, encoding="utf-8", errors="replace")
+    st.dataframe(raw_preview)
+
+    max_row = raw_preview.shape[0] - 1
+    header_row = st.slider("Alege rândul care conține antetul real", min_value=0, max_value=max_row, value=3)
+
     try:
-        df = pd.read_csv(file, header=3)
-        st.success(f"✅ {label} încărcat: {df.shape[0]} rânduri, {df.shape[1]} coloane.")
-        st.write("🔹 Antet:", list(df.columns))
+        df = pd.read_csv(uploaded_file, header=header_row, encoding="utf-8", errors="replace")
+        st.success(f"✅ Fișier citit cu antet pe rândul {header_row} (index={header_row})")
+        st.write("🔹 Coloane detectate:", list(df.columns))
         st.dataframe(df.head())
-        return df
     except Exception as e:
-        st.error(f"❌ Eroare la citirea fișierului {label}: {e}")
-        return None
-
-if uploaded_file1:
-    st.subheader("📂 Informații fișier 1")
-    df1 = safe_read(uploaded_file1, "Fișier 1")
-
-if uploaded_file2:
-    st.subheader("📂 Informații fișier 2")
-    df2 = safe_read(uploaded_file2, "Fișier 2")
+        st.error(f"❌ Eroare la citirea fișierului: {e}")
