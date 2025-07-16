@@ -2,8 +2,8 @@ import streamlit as st
 import pandas as pd
 import io
 
-st.set_page_config(page_title="Pas 1 - Test robust", layout="wide")
-st.title("📂 Pas 1: Încărcare și detecție antet 'Nr. mag.'")
+st.set_page_config(page_title="Pas 1 - CSV robust", layout="wide")
+st.title("📂 Pas 1: Încărcare fișier și detecție antet 'Nr. mag.'")
 
 uploaded_file = st.file_uploader("Încarcă un fișier CSV", type="csv")
 
@@ -17,8 +17,8 @@ if uploaded_file:
         text = content.decode("utf-8", errors="replace")
         st.write("✔️ Conținut decodat în UTF-8")
 
-        st.write("🔄 Se construiește DataFrame brut (fără antet)...")
-        df_raw = pd.read_csv(io.StringIO(text), header=None)
+        st.write("🔄 Se construiește DataFrame brut (fără antet, sep=';')...")
+        df_raw = pd.read_csv(io.StringIO(text), header=None, sep=";")
         st.write(f"✔️ DataFrame citit: {df_raw.shape[0]} rânduri, {df_raw.shape[1]} coloane")
 
         st.write("🔍 Se caută rândul cu antet care începe cu 'Nr. mag.'...")
