@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 
-st.set_page_config(page_title="Comparație Excel – complet", layout="wide")
+st.set_page_config(page_title="Refit plan", layout="wide")
 st.title("Comparație între două versiuni de fișiere xlsx")
 
 # ===============================
