@@ -1,49 +1,35 @@
 import streamlit as st
 import pandas as pd
-import io
-import csv
 
-st.set_page_config(page_title="Încărcare CSV - sigur", layout="wide")
-st.title("📂 Încărcare fișier CSV cu antet 'Nr. mag.' și filtrare coloane")
+st.set_page_config(page_title="Încărcare XLSX – Sheet fix", layout="wide")
+st.title("📂 Încărcare fișier Excel: sheet 'Refit plan 2025' și filtrare coloane")
 
-uploaded_file = st.file_uploader("Încarcă fișierul CSV", type="csv")
-
-def detect_separator(text_sample):
-    try:
-        dialect = csv.Sniffer().sniff(text_sample)
-        return dialect.delimiter
-    except:
-        return ','  # fallback
+uploaded_file = st.file_uploader("Încarcă fișierul Excel (.xlsx)", type="xlsx")
 
 if uploaded_file:
     try:
-        content = uploaded_file.read()
-        text = content.decode("utf-8", errors="replace")
-        st.write(f"✔️ Fișier decodat, lungime: {len(text)} caractere")
+        st.write("📥 Se încarcă doar sheet-ul 'Refit plan 2025'...")
 
-        # Eșantion pentru detectare separator
-        sample = "\n".join(text.splitlines()[:50])
-        separator = detect_separator(sample)
-        st.info(f"🧭 Separator detectat: `{separator}`")
+        # Încarcă doar sheet-ul specific
+        df_raw = pd.read_excel(uploaded_file, sheet_name="Refit plan 2025", header=None, dtype=str)
 
-        # Încearcă citirea completă cu separatorul detectat
-        df_raw = pd.read_csv(io.StringIO(text), header=None, sep=separator)
-        st.write(f"✅ DataFrame citit: {df_raw.shape[0]} rânduri, {df_raw.shape[1]} coloane")
+        st.write(f"✅ Sheet încărcat: {df_raw.shape[0]} rânduri × {df_raw.shape[1]} coloane")
 
-        # Caută rândul cu "Nr. mag."
+        # Caută rândul unde prima coloană este "Nr. mag."
         header_row_index = df_raw[df_raw.iloc[:, 0] == "Nr. mag."].index
+
         if len(header_row_index) == 0:
-            st.error("❌ Nu s-a găsit rândul cu antet 'Nr. mag.' în prima coloană.")
+            st.error("❌ Nu s-a găsit rândul unde prima coloană este 'Nr. mag.'")
         else:
             header_row = header_row_index[0]
             st.success(f"✅ Rândul {header_row} a fost identificat ca antet.")
 
-            new_header = df_raw.iloc[header_row].astype(str).fillna('').tolist()
+            new_header = df_raw.iloc[header_row].fillna('').astype(str).tolist()
             df_clean = df_raw.iloc[header_row + 1:].copy()
             df_clean.columns = new_header
             df_clean.reset_index(drop=True, inplace=True)
 
-            # Coloane de păstrat
+            # Coloanele relevante
             coloane_de_pastrat = [
                 "Nr. mag.",
                 "Nume Magazin",
@@ -59,7 +45,7 @@ if uploaded_file:
             coloane_lipsa = [col for col in coloane_de_pastrat if col not in df_clean.columns]
 
             if coloane_lipsa:
-                st.warning(f"⚠️ Următoarele coloane lipsesc din fișier: {coloane_lipsa}")
+                st.warning(f"⚠️ Următoarele coloane lipsesc din sheet: {coloane_lipsa}")
 
             if not coloane_existente:
                 st.error("❌ Nicio coloană relevantă nu a fost găsită.")
@@ -68,5 +54,7 @@ if uploaded_file:
                 st.success(f"✅ {len(coloane_existente)} coloane păstrate.")
                 st.dataframe(df_filtrat.head())
 
+    except ValueError as ve:
+        st.error(f"❌ Sheet 'Refit plan 2025' nu există în fișierul Excel. Asigură-te că numele este exact.")
     except Exception as e:
-        st.exception(f"❌ Eroare generală: {e}")
+        st.exception(f"❌ Eroare la procesare: {e}")
