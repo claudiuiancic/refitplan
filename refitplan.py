@@ -19,7 +19,6 @@ sheet_nume = "Refit plan 2025"
 id_col = "Nr. mag."
 alt_id_col = "Nume Magazin"
 sag = " ➡️ "
-emoji_mod = " ✏️"
 
 # ============ FUNCȚII ===============
 def incarca_fisier_excel(uploaded_file, label):
@@ -51,11 +50,11 @@ col1, col2 = st.columns(2)
 with col1:
     file1 = st.file_uploader("🔹 Încarcă versiunea VECHE (.xlsx)", type="xlsx", key="f1")
 with col2:
-    file2 = st.file_uploader("🔸 Încarcă versiunea NOUA (.xlsx)", type="xlsx", key="f2")
+    file2 = st.file_uploader("🔸 Încarcă versiunea NOUĂ (.xlsx)", type="xlsx", key="f2")
 
 if file1 and file2:
-    df1 = incarca_fisier_excel(file1, "Versiunea 1")
-    df2 = incarca_fisier_excel(file2, "Versiunea 2")
+    df1 = incarca_fisier_excel(file1, "Versiunea VECHE")
+    df2 = incarca_fisier_excel(file2, "Versiunea NOUĂ")
 
     if df1 is not None and df2 is not None:
         toate_coloanele = sorted(set(df1.columns).union(df2.columns) - {id_col, "_ID"})
@@ -110,7 +109,7 @@ if file1 and file2:
                     val1 = str(row1.get(col, "")).strip()
                     val2 = str(row2.get(col, "")).strip()
                     if val1 != val2:
-                        modificari[col] = f"{val1}{sag}{val2}{emoji_mod}"
+                        modificari[col] = f"{val1}{sag}{val2}"
                         style_row[col] = "background-color: #ffe6e6"
 
                 if modificari:
