@@ -1,8 +1,8 @@
 import streamlit as st
 import pandas as pd
 
-st.set_page_config(page_title="Comparație Excel – complet", layout="wide")
-st.title("📊 Comparație între două fișiere Excel (.xlsx)")
+st.set_page_config(page_title="RefitPlan", layout="wide")
+st.title("Comparație Refit plan (.xlsx)")
 
 # ============ CONFIG ===============
 coloane_default = [
@@ -49,9 +49,9 @@ def incarca_fisier_excel(uploaded_file, label):
 # ============ UI UPLOAD ===============
 col1, col2 = st.columns(2)
 with col1:
-    file1 = st.file_uploader("🔹 Încarcă PRIMA versiune (.xlsx)", type="xlsx", key="f1")
+    file1 = st.file_uploader("🔹 Încarcă versiunea VECHE (.xlsx)", type="xlsx", key="f1")
 with col2:
-    file2 = st.file_uploader("🔸 Încarcă A DOUA versiune (.xlsx)", type="xlsx", key="f2")
+    file2 = st.file_uploader("🔸 Încarcă versiunea NOUA (.xlsx)", type="xlsx", key="f2")
 
 if file1 and file2:
     df1 = incarca_fisier_excel(file1, "Versiunea 1")
@@ -123,7 +123,7 @@ if file1 and file2:
                     rezultate_mod.append(entry)
                     styling_mask.append(style_row)
 
-            tabs = st.tabs(["🟥 Modificări reale", "📁 ID-uri noi / dispărute"])
+            tabs = st.tabs(["🟥 Modificări", "📁 ID-uri noi / dispărute"])
 
             with tabs[0]:
                 if rezultate_mod:
@@ -141,7 +141,7 @@ if file1 and file2:
                             return [style.get(col, "") for col in df.columns]
                         return df.style.apply(highlighter, axis=1)
 
-                    st.success(f"✅ {len(df_mod)} rânduri cu modificări")
+                    st.success(f"✅  {len(df_mod)} rânduri cu modificări")
                     st.dataframe(apply_style(df_mod), use_container_width=True, hide_index=True)
                 else:
                     st.info("✔️ Nu s-au găsit modificări.")
