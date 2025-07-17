@@ -1,8 +1,8 @@
 import streamlit as st
 import pandas as pd
 
-st.set_page_config(page_title="Comparație Excel – vizual compact", layout="wide")
-st.title("📊 Comparație compactă între două fișiere Excel")
+st.set_page_config(page_title="Comparație Excel – modificări reale", layout="wide")
+st.title("📊 Comparație fișiere Excel – doar modificările reale")
 
 # ============ CONFIG ===============
 coloane_default = [
@@ -17,7 +17,7 @@ coloane_default = [
 ]
 sheet_nume = "Refit plan 2025"
 id_col = "Nr. mag."
-nume_col = "Nume Magazin"
+alt_id_col = "Nume Magazin"
 sag = " ➡️ "
 
 # ============ FUNCȚII ===============
@@ -37,13 +37,17 @@ def incarca_fisier_excel(uploaded_file, label):
         df.reset_index(drop=True, inplace=True)
 
         df[id_col] = df[id_col].astype(str).str.zfill(4)
-        return df
+        df[alt_id_col] = df[alt_id_col].astype(str).str.strip()
 
+        # Creează un ID combinat: Nr. mag. dacă există, altfel Nume Magazin
+        df["_ID"] = df[id_col].where(~df[id_col].isin(["nan", "0nan", "None", "NaN", "", "0000"]), df[alt_id_col])
+
+        return df
     except Exception as e:
         st.error(f"❌ Eroare la citirea fișierului [{label}]: {e}")
         return None
 
-# ============ ÎNCĂRCARE ===============
+# ============ UI FILE UPLOAD ===============
 col1, col2 = st.columns(2)
 with col1:
     file1 = st.file_uploader("🔹 Încarcă PRIMA versiune (.xlsx)", type="xlsx", key="f1")
@@ -55,7 +59,7 @@ if file1 and file2:
     df2 = incarca_fisier_excel(file2, "Versiunea 2")
 
     if df1 is not None and df2 is not None:
-        toate_coloanele = sorted(set(df1.columns).union(df2.columns) - {id_col})
+        toate_coloanele = sorted(set(df1.columns).union(df2.columns) - {id_col, "_ID"})
         st.subheader("🧩 Selectează coloanele pentru comparație")
         selected_columns = st.multiselect(
             "Coloane de comparat:",
@@ -66,8 +70,8 @@ if file1 and file2:
         if not selected_columns:
             st.warning("⚠️ Selectează cel puțin o coloană pentru comparație.")
         else:
-            df1_indexed = df1.set_index(id_col)
-            df2_indexed = df2.set_index(id_col)
+            df1_indexed = df1.set_index("_ID")
+            df2_indexed = df2.set_index("_ID")
 
             iduri_1 = set(df1_indexed.index)
             iduri_2 = set(df2_indexed.index)
@@ -77,44 +81,36 @@ if file1 and file2:
             styling_mask = []
 
             for idx in toate_idurile:
-                row = {id_col: idx}
-                style_row = {}
-
                 in_1 = idx in df1_indexed.index
                 in_2 = idx in df2_indexed.index
 
-                if not in_1 and in_2:
-                    row[nume_col] = df2_indexed.loc[idx].get(nume_col, "(nou)")
-                    for col in selected_columns:
-                        row[col] = f"🆕 {df2_indexed.loc[idx].get(col, '')}"
-                        style_row[col] = "background-color: #e0f7fa"
-                    rezultate.append(row)
-                    styling_mask.append(style_row)
-                    continue
+                if not in_1 or not in_2:
+                    continue  # ignorăm ID-urile complet noi/disparute pentru acest pas
 
-                if in_1 and not in_2:
-                    row[nume_col] = df1_indexed.loc[idx].get(nume_col, "(dispărut)")
-                    for col in selected_columns:
-                        row[col] = f"{df1_indexed.loc[idx].get(col, '')} ❌"
-                        style_row[col] = "background-color: #f0f0f0"
-                    rezultate.append(row)
-                    styling_mask.append(style_row)
-                    continue
+                row1 = df1_indexed.loc[idx]
+                row2 = df2_indexed.loc[idx]
 
-                row[nume_col] = df2_indexed.loc[idx].get(nume_col, df1_indexed.loc[idx].get(nume_col, ""))
+                modificari = {}
+                style_row = {}
+
                 for col in selected_columns:
-                    val1 = str(df1_indexed.loc[idx].get(col, "")).strip()
-                    val2 = str(df2_indexed.loc[idx].get(col, "")).strip()
+                    val1 = str(row1.get(col, "")).strip()
+                    val2 = str(row2.get(col, "")).strip()
                     if val1 != val2:
-                        row[col] = f"{val1}{sag}{val2}"
+                        modificari[col] = f"{val1}{sag}{val2}"
                         style_row[col] = "background-color: #ffe6e6"
-                    else:
-                        row[col] = "-"
-                rezultate.append(row)
-                styling_mask.append(style_row)
+
+                if modificari:
+                    entry = {
+                        "Nr. mag.": row1.get("Nr. mag.", ""),
+                        "Nume Magazin": row1.get("Nume Magazin", "")
+                    }
+                    entry.update(modificari)
+                    rezultate.append(entry)
+                    styling_mask.append(style_row)
 
             if rezultate:
-                df_final = pd.DataFrame(rezultate)
+                df_final = pd.DataFrame(rezultate).fillna("-")
 
                 def apply_style(df):
                     def highlighter(row):
@@ -123,7 +119,7 @@ if file1 and file2:
                         return [style.get(col, "") for col in df.columns]
                     return df.style.apply(highlighter, axis=1)
 
-                st.subheader("🔎 Tabel cu diferențele detectate")
+                st.subheader("🔍 Tabel cu modificări")
                 st.dataframe(apply_style(df_final), use_container_width=True)
             else:
-                st.info("✔️ Nu s-au găsit diferențe.")
+                st.success("✔️ Nu s-au găsit modificări.")
