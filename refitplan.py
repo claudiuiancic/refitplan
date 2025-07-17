@@ -38,7 +38,6 @@ def incarca_fisier_excel(uploaded_file, label):
         df[id_col] = df[id_col].astype(str).str.zfill(4)
         df[alt_id_col] = df[alt_id_col].astype(str).str.strip()
 
-        # ID combinat: Nr. mag. dacă valid, altfel Nume Magazin
         df["_ID"] = df[id_col].where(~df[id_col].isin(["nan", "0nan", "None", "NaN", "", "0000"]), df[alt_id_col])
         return df
     except Exception as e:
@@ -128,10 +127,16 @@ if file1 and file2:
                 if rezultate_mod:
                     df_mod = pd.DataFrame(rezultate_mod).fillna("-")
 
-                    # Asigurare ordine coloane: Proiect, Nr. mag., Nume Magazin, restul
                     fixe = ["Proiect", "Nr. mag.", "Nume Magazin"]
                     altele = [c for c in df_mod.columns if c not in fixe]
                     df_mod = df_mod[fixe + altele]
+
+                    # 🔍 Căutare live
+                    search = st.text_input("🔎 Caută în tabel (orice text)", value="")
+                    if search:
+                        df_mod = df_mod[df_mod.apply(
+                            lambda row: row.astype(str).str.contains(search, case=False).any(), axis=1
+                        )]
 
                     def apply_style(df):
                         def highlighter(row):
