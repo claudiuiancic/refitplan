@@ -19,6 +19,7 @@ sheet_nume = "Refit plan 2025"
 id_col = "Nr. mag."
 alt_id_col = "Nume Magazin"
 sag = " ➡️ "
+emoji_mod = " ✏️"
 
 # ============ FUNCȚII ===============
 def incarca_fisier_excel(uploaded_file, label):
@@ -45,7 +46,7 @@ def incarca_fisier_excel(uploaded_file, label):
         st.error(f"❌ Eroare la citirea fișierului [{label}]: {e}")
         return None
 
-# ============ ÎNCĂRCARE FISIERE ===============
+# ============ UI UPLOAD ===============
 col1, col2 = st.columns(2)
 with col1:
     file1 = st.file_uploader("🔹 Încarcă PRIMA versiune (.xlsx)", type="xlsx", key="f1")
@@ -74,38 +75,34 @@ if file1 and file2:
             toate_idurile = sorted(iduri_1.union(iduri_2))
 
             rezultate_mod = []
-            rezultate_nou_disparut = []
             styling_mask = []
+            rezultate_nou_disparut = []
 
             for idx in toate_idurile:
                 in_1 = idx in df1_indexed.index
                 in_2 = idx in df2_indexed.index
 
-                # ➕ ID nou
                 if not in_1 and in_2:
                     row2 = df2_indexed.loc[idx]
-                    entry = {
+                    rezultate_nou_disparut.append({
                         "Nr. mag.": row2.get("Nr. mag.", ""),
                         "Nume Magazin": row2.get("Nume Magazin", ""),
                         "Status": "🆕 ID nou"
-                    }
-                    rezultate_nou_disparut.append(entry)
+                    })
                     continue
 
-                # ➖ ID dispărut
                 if in_1 and not in_2:
                     row1 = df1_indexed.loc[idx]
-                    entry = {
+                    rezultate_nou_disparut.append({
                         "Nr. mag.": row1.get("Nr. mag.", ""),
                         "Nume Magazin": row1.get("Nume Magazin", ""),
                         "Status": "❌ ID dispărut"
-                    }
-                    rezultate_nou_disparut.append(entry)
+                    })
                     continue
 
-                # 🔁 Modificări reale
                 row1 = df1_indexed.loc[idx]
                 row2 = df2_indexed.loc[idx]
+
                 modificari = {}
                 style_row = {}
 
@@ -113,11 +110,12 @@ if file1 and file2:
                     val1 = str(row1.get(col, "")).strip()
                     val2 = str(row2.get(col, "")).strip()
                     if val1 != val2:
-                        modificari[col] = f"{val1}{sag}{val2}"
+                        modificari[col] = f"{val1}{sag}{val2}{emoji_mod}"
                         style_row[col] = "background-color: #ffe6e6"
 
                 if modificari:
                     entry = {
+                        "Proiect": row1.get("Proiect", ""),
                         "Nr. mag.": row1.get("Nr. mag.", ""),
                         "Nume Magazin": row1.get("Nume Magazin", "")
                     }
@@ -125,11 +123,16 @@ if file1 and file2:
                     rezultate_mod.append(entry)
                     styling_mask.append(style_row)
 
-            tabs = st.tabs(["🟥 Doar modificări reale", "📁 ID-uri noi și dispărute"])
+            tabs = st.tabs(["🟥 Modificări reale", "📁 ID-uri noi / dispărute"])
 
             with tabs[0]:
                 if rezultate_mod:
                     df_mod = pd.DataFrame(rezultate_mod).fillna("-")
+
+                    # Asigurare ordine coloane: Proiect, Nr. mag., Nume Magazin, restul
+                    fixe = ["Proiect", "Nr. mag.", "Nume Magazin"]
+                    altele = [c for c in df_mod.columns if c not in fixe]
+                    df_mod = df_mod[fixe + altele]
 
                     def apply_style(df):
                         def highlighter(row):
@@ -139,16 +142,14 @@ if file1 and file2:
                         return df.style.apply(highlighter, axis=1)
 
                     st.success(f"✅ {len(df_mod)} rânduri cu modificări")
-                    st.dataframe(apply_style(df_mod), use_container_width=True)
+                    st.dataframe(apply_style(df_mod), use_container_width=True, hide_index=True)
                 else:
                     st.info("✔️ Nu s-au găsit modificări.")
 
             with tabs[1]:
                 if rezultate_nou_disparut:
                     df_ids = pd.DataFrame(rezultate_nou_disparut)
-                    st.success(f"🔄 {len(df_ids)} ID-uri noi sau dispărute")
-                    st.dataframe(df_ids, use_container_width=True)
+                    st.success(f"📌 {len(df_ids)} ID-uri noi sau dispărute")
+                    st.dataframe(df_ids, use_container_width=True, hide_index=True)
                 else:
                     st.info("✔️ Nu există ID-uri complet noi sau complet dispărute.")
-        else:
-            st.warning("⚠️ Selectează cel puțin o coloană pentru comparație.")
